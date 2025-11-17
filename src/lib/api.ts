@@ -30,34 +30,33 @@ function cleanText(text: string): string {
 }
 
 // ==============================
-// 2️⃣ EXTERNAL MODERATION API
+// 2️⃣ EXTERNAL MODERATION API (GPT via Supabase Function)
 // ==============================
-// IMPORTANT:
-// Replace YOUR_MODERATION_API_URL_HERE and YOUR_API_KEY_HERE
-// with your actual endpoint + key.
-async function checkWithModerationAPI(text: string): Promise<boolean> {
+async function checkWithModerationAPI(text: string) {
   try {
     const res = await fetch(
       "https://zwfvaixpekbkmxbeqhsx.supabase.co/functions/v1/swift-worker",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       }
     );
 
     const data = await res.json();
-    return data.flagged === true;
+    // data = { flagged, status, reason }
+    return data;
   } catch (err) {
     console.error("Moderation API error:", err);
-    return false;
+
+    // Treat API failure as a rejection
+    return {
+      flagged: true,
+      status: "REJECTED",
+      reason: "moderation_api_error",
+    };
   }
 }
-
-
-
 
 // ==============================
 //  Type Definitions
@@ -141,22 +140,21 @@ export async function getConfessions(): Promise<Confession[]> {
 // ==============================
 //  Submit Confession with 2-layer moderation
 // ==============================
-export async function submitConfession(
-  content: string
-): Promise<Confession> {
-  // Layer 1 — Local slur blocker
+export async function submitConfession(content: string): Promise<Confession> {
+  // Layer 1 — Local slur blocker (instant reject)
   if (containsBannedWord(content)) {
     throw new Error("Your confession contains banned language.");
   }
 
-  // Layer 2 — External moderation model
-  const isBlocked = await checkWithModerationAPI(content);
-  if (isBlocked) {
-    throw new Error(
-      "Your confession violates community guidelines (political, personal info, or sensitive content)."
-    );
+  // Layer 2 — GPT Moderation (via Supabase function)
+  const check = await checkWithModerationAPI(content);
+
+  if (check.flagged) {
+    // Actually show GPT's reason
+    throw new Error(check.reason || "Your confession violates community guidelines.");
   }
 
+  // Safe → Insert confession
   const result = await fetchAPI("/confessions", {
     method: "POST",
     body: JSON.stringify({ content }),
@@ -168,9 +166,7 @@ export async function submitConfession(
 // ==============================
 //  Like Toggle
 // ==============================
-export async function toggleLike(
-  confessionId: string
-): Promise<Confession> {
+export async function toggleLike(confessionId: string): Promise<Confession> {
   const userId = getUserId();
   const result = await fetchAPI(`/confessions/${confessionId}/like`, {
     method: "POST",
