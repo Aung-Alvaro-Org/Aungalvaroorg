@@ -7,7 +7,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
             <h3 className="text-xl text-white mb-4 flex items-center gap-2">
-              <span className="text-2xl">🎭</span>
+              <span className="text-2xl"></span>
               Bath Confessions
             </h3>
             <p className="text-gray-500 mb-4 text-sm">
