@@ -37,10 +37,16 @@ function cleanText(text: string): string {
 // with your actual endpoint + key.
 async function checkWithModerationAPI(text: string): Promise<boolean> {
   try {
-    const res = await fetch("https://yourproject.vercel.app/api/moderate", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
+    const res = await fetch(
+      "https://zwfvaixpekbkmxbeqhsx.supabase.co/functions/v1/swift-worker",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
 
     const data = await res.json();
     return data.flagged === true;
@@ -49,6 +55,8 @@ async function checkWithModerationAPI(text: string): Promise<boolean> {
     return false;
   }
 }
+
+
 
 
 // ==============================
