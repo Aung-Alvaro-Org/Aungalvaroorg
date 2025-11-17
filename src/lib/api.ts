@@ -2,6 +2,34 @@ import { projectId, publicAnonKey } from "../utils/supabase/info";
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-2409b2a8`;
 
+// --------------------------------------------
+// SIMPLE MANUAL SLUR FILTER (NO LIBRARY)
+// --------------------------------------------
+const bannedWords = [
+  "nigger",
+  "faggot",
+  "kike",
+  "spic",
+  "tranny",
+];
+
+// Check if confession contains any banned words
+function containsBannedWord(text: string): boolean {
+  const lower = text.toLowerCase();
+  return bannedWords.some((word) => lower.includes(word));
+}
+
+// Optional: clean the text instead of blocking
+function cleanText(text: string): string {
+  let cleaned = text;
+  bannedWords.forEach((word) => {
+    const stars = "*".repeat(word.length);
+    cleaned = cleaned.replace(new RegExp(word, "gi"), stars);
+  });
+  return cleaned;
+}
+// --------------------------------------------
+
 export interface Confession {
   id: string;
   content: string;
@@ -59,7 +87,9 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    throw new Error(
+      errorData.error || `HTTP error! status: ${response.status}`
+    );
   }
 
   return response.json();
@@ -70,15 +100,30 @@ export async function getConfessions(): Promise<Confession[]> {
   return result.data || [];
 }
 
-export async function submitConfession(content: string): Promise<Confession> {
+export async function submitConfession(
+  content: string
+): Promise<Confession> {
+  // ----------------------------
+  // 🚨 SLUR DETECTION
+  // ----------------------------
+  if (containsBannedWord(content)) {
+    throw new Error("Your confession contains banned language.");
+  }
+
+  // OPTIONAL: Replace slurs with *****
+  // const cleaned = cleanText(content);
+
   const result = await fetchAPI("/confessions", {
     method: "POST",
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content }), // or content: cleaned
   });
+
   return result.data;
 }
 
-export async function toggleLike(confessionId: string): Promise<Confession> {
+export async function toggleLike(
+  confessionId: string
+): Promise<Confession> {
   const userId = getUserId();
   const result = await fetchAPI(`/confessions/${confessionId}/like`, {
     method: "POST",
@@ -86,3 +131,4 @@ export async function toggleLike(confessionId: string): Promise<Confession> {
   });
   return result.data;
 }
+
