@@ -15,55 +15,60 @@ export function ConfessionHero({ onConfessionSubmitted }: ConfessionHeroProps) {
   const [isFocused, setIsFocused] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Empty input
-    if (!confession.trim()) {
-      toast.error("Please write something before submitting.");
-      return;
-    }
+  // Empty input
+  if (!confession.trim()) {
+    toast.error("Please write something before submitting.");
+    return;
+  }
 
-    // Character limit
-    if (confession.length > 1000) {
-      toast.error("Confession is too long (max 1000 characters).");
-      return;
-    }
+  // Character limit
+  if (confession.length > 1000) {
+    toast.error("Confession is too long (max 1000 characters).");
+    return;
+  }
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      // ⛔ GPT Rejections throw an Error(message)
-      await submitConfession(confession);
+  try {
+    // 🔍 submitConfession() will:
+    // - call swift-worker (GPT)
+    // - throw Error(reason) if REJECTED
+    // - insert into DB if APPROVED
+    await submitConfession(confession);
 
-      // 🎉 If approved
-      toast.success("Confession submitted anonymously!");
+    // 🎉 Success message
+    toast.success("Confession submitted anonymously!");
 
-      setConfession("");
-      setIsFocused(false);
+    // Reset input
+    setConfession("");
+    setIsFocused(false);
 
-      // Parent refresh callback
-      onConfessionSubmitted?.();
+    // Refresh feed
+    onConfessionSubmitted?.();
 
-      // Auto-scroll to confessions list
-      setTimeout(() => {
-        const el = document.getElementById("confessions");
-        el?.scrollIntoView({ behavior: "smooth" });
-      }, 500);
+    // Scroll to confessions list
+    setTimeout(() => {
+      const el = document.getElementById("confessions");
+      el?.scrollIntoView({ behavior: "smooth" });
+    }, 500);
 
-    } catch (error: any) {
-      console.error("Error submitting confession:", error);
+  } catch (error: any) {
+    console.error("Error submitting confession:", error);
 
-      // GPT reason comes from error.message
-      const msg =
-        error instanceof Error
-          ? error.message
-          : "Failed to submit confession. Please try again.";
+    // ❌ GPT rejection comes from error.message
+    const msg =
+      error instanceof Error
+        ? error.message
+        : "Failed to submit confession. Please try again.";
 
-      toast.error(msg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    toast.error(msg);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center bg-gradient-to-b from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f]">
