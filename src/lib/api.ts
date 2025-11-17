@@ -2,9 +2,9 @@ import { projectId, publicAnonKey } from "../utils/supabase/info";
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-2409b2a8`;
 
-// --------------------------------------------
-// SIMPLE MANUAL SLUR FILTER (NO LIBRARY)
-// --------------------------------------------
+// ==============================
+// 1️⃣ SIMPLE SLUR FILTER
+// ==============================
 const bannedWords = [
   "nigger",
   "faggot",
@@ -19,7 +19,7 @@ function containsBannedWord(text: string): boolean {
   return bannedWords.some((word) => lower.includes(word));
 }
 
-// Optional: clean the text instead of blocking
+// Optional cleanup logic (not used but kept)
 function cleanText(text: string): string {
   let cleaned = text;
   bannedWords.forEach((word) => {
@@ -28,8 +28,32 @@ function cleanText(text: string): string {
   });
   return cleaned;
 }
-// --------------------------------------------
 
+// ==============================
+// 2️⃣ EXTERNAL MODERATION API
+// ==============================
+// IMPORTANT:
+// Replace YOUR_MODERATION_API_URL_HERE and YOUR_API_KEY_HERE
+// with your actual endpoint + key.
+async function checkWithModerationAPI(text: string): Promise<boolean> {
+  try {
+    const res = await fetch("https://yourproject.vercel.app/api/moderate", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+
+    const data = await res.json();
+    return data.flagged === true;
+  } catch (err) {
+    console.error("Moderation API error:", err);
+    return false;
+  }
+}
+
+
+// ==============================
+//  Type Definitions
+// ==============================
 export interface Confession {
   id: string;
   content: string;
@@ -75,6 +99,9 @@ export function getTimeAgo(timestamp: string): string {
   return `${months} ${months === 1 ? "month" : "months"} ago`;
 }
 
+// ==============================
+//  Network API Wrapper
+// ==============================
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -95,32 +122,44 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   return response.json();
 }
 
+// ==============================
+//  Get All Confessions
+// ==============================
 export async function getConfessions(): Promise<Confession[]> {
   const result = await fetchAPI("/confessions");
   return result.data || [];
 }
 
+// ==============================
+//  Submit Confession with 2-layer moderation
+// ==============================
 export async function submitConfession(
   content: string
 ): Promise<Confession> {
-  // ----------------------------
-  // 🚨 SLUR DETECTION
-  // ----------------------------
+  // Layer 1 — Local slur blocker
   if (containsBannedWord(content)) {
     throw new Error("Your confession contains banned language.");
   }
 
-  // OPTIONAL: Replace slurs with *****
-  // const cleaned = cleanText(content);
+  // Layer 2 — External moderation model
+  const isBlocked = await checkWithModerationAPI(content);
+  if (isBlocked) {
+    throw new Error(
+      "Your confession violates community guidelines (political, personal info, or sensitive content)."
+    );
+  }
 
   const result = await fetchAPI("/confessions", {
     method: "POST",
-    body: JSON.stringify({ content }), // or content: cleaned
+    body: JSON.stringify({ content }),
   });
 
   return result.data;
 }
 
+// ==============================
+//  Like Toggle
+// ==============================
 export async function toggleLike(
   confessionId: string
 ): Promise<Confession> {
@@ -131,4 +170,3 @@ export async function toggleLike(
   });
   return result.data;
 }
-
