@@ -17,13 +17,11 @@ export function ConfessionHero({ onConfessionSubmitted }: ConfessionHeroProps) {
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // Empty input
   if (!confession.trim()) {
     toast.error("Please write something before submitting.");
     return;
   }
 
-  // Character limit
   if (confession.length > 1000) {
     toast.error("Confession is too long (max 1000 characters).");
     return;
@@ -32,38 +30,36 @@ export function ConfessionHero({ onConfessionSubmitted }: ConfessionHeroProps) {
   setIsSubmitting(true);
 
   try {
-    // 🔍 submitConfession() will:
-    // - call swift-worker (GPT)
-    // - throw Error(reason) if REJECTED
-    // - insert into DB if APPROVED
+    // This calls:
+    // 1. GPT moderation (swift-worker)
+    // 2. Throws Error(reason) if REJECTED
+    // 3. Inserts into DB if APPROVED
     await submitConfession(confession);
 
-    // 🎉 Success message
-    toast.success("Confession submitted anonymously!");
+    // 🎉 SUCCESS toast
+    toast.success("Your confession was approved and posted!");
 
-    // Reset input
     setConfession("");
     setIsFocused(false);
 
-    // Refresh feed
     onConfessionSubmitted?.();
 
-    // Scroll to confessions list
     setTimeout(() => {
-      const el = document.getElementById("confessions");
-      el?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("confessions")?.scrollIntoView({
+        behavior: "smooth",
+      });
     }, 500);
 
   } catch (error: any) {
     console.error("Error submitting confession:", error);
 
-    // ❌ GPT rejection comes from error.message
-    const msg =
+    // 🔥 THIS IS THE GPT REASON (e.g. "hate speech", "threats", etc.)
+    const reason =
       error instanceof Error
         ? error.message
-        : "Failed to submit confession. Please try again.";
+        : "Your confession was rejected by moderation.";
 
-    toast.error(msg);
+    toast.error(`Rejected: ${reason}`);
   } finally {
     setIsSubmitting(false);
   }
