@@ -141,21 +141,30 @@ export async function getConfessions(): Promise<Confession[]> {
 //  Submit Confession with 2-layer moderation
 // ==============================
 export async function submitConfession(content: string): Promise<Confession> {
-  // Layer 1 — Local slur blocker (instant reject)
+  // 1️⃣ Local slur block
   if (containsBannedWord(content)) {
     throw new Error("Your confession contains banned language.");
   }
 
-  // Layer 2 — GPT Moderation (via Supabase function)
-  const check = await checkWithModerationAPI(content);
-  console.log("GPT moderation result:", check);
+  // 2️⃣ Call GPT moderation via edge function
+  const res = await fetch(
+    "https://zwfvaixpekbkmxbeqhsx.supabase.co/functions/v1/swift-worker",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: content }),
+    }
+  );
 
-  if (check.flagged) {
-    // Actually show GPT's reason
-    throw new Error(check.reason || "Your confession violates community guidelines.");
+  const data = await res.json();
+  console.log("Moderation:", data);
+
+  // If GPT rejects → stop
+  if (data.flagged || data.status === "REJECTED") {
+    throw new Error(data.reason || "Your confession was rejected.");
   }
 
-  // Safe → Insert confession
+  // If GPT approves → insert into Supabase via your existing API
   const result = await fetchAPI("/confessions", {
     method: "POST",
     body: JSON.stringify({ content }),
@@ -163,6 +172,8 @@ export async function submitConfession(content: string): Promise<Confession> {
 
   return result.data;
 }
+
+
 
 // ==============================
 //  Like Toggle
