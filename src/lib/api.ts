@@ -30,7 +30,7 @@ function cleanText(text: string): string {
 }
 
 // ==============================
-// 2️⃣ EXTERNAL MODERATION API (GPT via Supabase Function)
+// 2️⃣ EXTERNAL MODERATION API (GPT via Supabase Edge Function)
 // ==============================
 async function checkWithModerationAPI(text: string) {
   try {
@@ -38,7 +38,11 @@ async function checkWithModerationAPI(text: string) {
       "https://zwfvaixpekbkmxbeqhsx.supabase.co/functions/v1/swift-worker",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // 🔑 THIS WAS MISSING – Supabase requires auth for edge functions
+          Authorization: `Bearer ${publicAnonKey}`,
+        },
         body: JSON.stringify({ text }),
       }
     );
@@ -107,7 +111,7 @@ export function getTimeAgo(timestamp: string): string {
 }
 
 // ==============================
-//  Network API Wrapper
+//  Network API Wrapper (your existing server)
 // ==============================
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -146,25 +150,16 @@ export async function submitConfession(content: string): Promise<Confession> {
     throw new Error("Your confession contains banned language.");
   }
 
-  // 2️⃣ Call GPT moderation via edge function
-  const res = await fetch(
-    "https://zwfvaixpekbkmxbeqhsx.supabase.co/functions/v1/swift-worker",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: content }),
-    }
-  );
+  // 2️⃣ GPT moderation via edge function
+  const check = await checkWithModerationAPI(content);
+  console.log("Moderation:", check);
 
-  const data = await res.json();
-  console.log("Moderation:", data);
-
-  // If GPT rejects → stop
-  if (data.flagged || data.status === "REJECTED") {
-    throw new Error(data.reason || "Your confession was rejected.");
+  // If GPT rejects → stop here (do NOT write to DB)
+  if (check.flagged || check.status === "REJECTED") {
+    throw new Error(check.reason || "Your confession was rejected.");
   }
 
-  // If GPT approves → insert into Supabase via your existing API
+  // 3️⃣ If GPT approves → insert into Supabase via your existing backend
   const result = await fetchAPI("/confessions", {
     method: "POST",
     body: JSON.stringify({ content }),
@@ -172,8 +167,6 @@ export async function submitConfession(content: string): Promise<Confession> {
 
   return result.data;
 }
-
-
 
 // ==============================
 //  Like Toggle
