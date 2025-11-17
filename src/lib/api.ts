@@ -148,6 +148,7 @@ export async function submitConfession(content: string): Promise<Confession> {
 
   // Layer 2 — GPT Moderation (via Supabase function)
   const check = await checkWithModerationAPI(content);
+  console.log("GPT moderation result:", check);
 
   if (check.flagged) {
     // Actually show GPT's reason
