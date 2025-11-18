@@ -6,8 +6,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
-            <h3 className="text-xl text-white mb-4 flex items-center gap-2">
-              <span className="text-2xl"></span>
+            <h3 className="text-xl text-white mb-4">
               Bath Confessions
             </h3>
             <p className="text-gray-500 mb-4 text-sm">
@@ -50,10 +49,10 @@ export function Footer() {
           <div>
             <h4 className="text-white mb-4 text-sm">Stay Safe</h4>
             <div className="space-y-2 text-gray-500 text-sm">
-              <p>🔒 Your identity is protected</p>
-              <p>🎓 By Bath students, for Bath students</p>
-              <p>💙 Building community through honesty</p>
-              <p>⚠️ Report inappropriate content</p>
+              <p>Your identity is protected</p>
+              <p>By Bath students, for Bath students</p>
+              <p>Building community through honesty</p>
+              <p>Report inappropriate content</p>
             </div>
           </div>
         </div>

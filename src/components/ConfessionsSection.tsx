@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { TrendingUp, Clock, Heart, RefreshCw, AlertCircle } from "lucide-react";
 import { Confession, getConfessions } from "../lib/api";
 import { Button } from "./ui/button";
+import { motion, AnimatePresence } from "motion/react";
 
 interface ConfessionsSectionProps {
   refreshTrigger?: number;
@@ -14,6 +15,8 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
   const [confessions, setConfessions] = useState<Confession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [displayCount, setDisplayCount] = useState(20);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const fetchConfessions = async () => {
     setIsLoading(true);
@@ -47,7 +50,6 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
     
     switch (sortType) {
       case "trending":
-        // Trending: combination of likes and recency
         return sorted.sort((a, b) => {
           const aScore = a.likes + (a.comments * 2);
           const bScore = b.likes + (b.comments * 2);
@@ -64,7 +66,20 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
     }
   };
 
+  const handleTabChange = (newTab: string) => {
+    setIsAnimating(true);
+    setActiveTab(newTab);
+    setDisplayCount(20);
+    setTimeout(() => setIsAnimating(false), 100);
+  };
+
   const sortedConfessions = getSortedConfessions(activeTab);
+  const displayedConfessions = sortedConfessions.slice(0, displayCount);
+  const hasMore = displayCount < sortedConfessions.length;
+
+  const handleLoadMore = () => {
+    setDisplayCount((prev) => prev + 20);
+  };
 
   // Loading state
   if (isLoading) {
@@ -84,7 +99,7 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="bg-[#1a1a24] rounded-2xl border border-gray-800 p-6 animate-pulse">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-gray-700"></div>
+                  <div className="w-11 h-11 rounded-full bg-gray-700"></div>
                   <div className="flex-1">
                     <div className="h-4 bg-gray-700 rounded w-24 mb-2"></div>
                     <div className="h-3 bg-gray-700 rounded w-16"></div>
@@ -96,8 +111,8 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
                   <div className="h-4 bg-gray-700 rounded w-3/4"></div>
                 </div>
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-800/50">
-                  <div className="h-8 bg-gray-700 rounded-full w-16"></div>
-                  <div className="h-8 bg-gray-700 rounded-full w-16"></div>
+                  <div className="h-12 bg-gray-700 rounded-full w-20"></div>
+                  <div className="h-12 bg-gray-700 rounded-full w-20"></div>
                 </div>
               </div>
             ))}
@@ -159,7 +174,7 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
           </div>
 
           <div className="max-w-md mx-auto text-center py-12">
-            <div className="text-6xl mb-4">🎭</div>
+            <div className="text-6xl mb-4">💭</div>
             <h3 className="text-white mb-2">
               No Confessions Yet
             </h3>
@@ -183,7 +198,7 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12 flex items-center justify-between">
           <div>
-            <h2 className="text-white mb-2 text-3xl">
+            <h2 className="text-white mb-1 text-3xl">
               Community Confessions
             </h2>
             <p className="text-gray-500">
@@ -201,7 +216,7 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
           </Button>
         </div>
 
-        <Tabs defaultValue="trending" value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="bg-[#1a1a24] border border-gray-800 p-1 mb-8 h-auto">
             <TabsTrigger 
               value="trending" 
@@ -226,41 +241,45 @@ export function ConfessionsSection({ refreshTrigger }: ConfessionsSectionProps) 
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="trending" className="mt-0">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {sortedConfessions.map((confession) => (
-                <ConfessionCard 
-                  key={confession.id} 
-                  confession={confession}
-                  onLikeUpdate={handleLikeUpdate}
-                />
-              ))}
-            </div>
-          </TabsContent>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {displayedConfessions.map((confession, index) => (
+                  <motion.div
+                    key={confession.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ 
+                      duration: 0.3,
+                      delay: isAnimating ? 0 : index * 0.05,
+                    }}
+                  >
+                    <ConfessionCard 
+                      confession={confession}
+                      onLikeUpdate={handleLikeUpdate}
+                    />
+                  </motion.div>
+                ))}
+              </div>
 
-          <TabsContent value="recent" className="mt-0">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {sortedConfessions.map((confession) => (
-                <ConfessionCard 
-                  key={confession.id} 
-                  confession={confession}
-                  onLikeUpdate={handleLikeUpdate}
-                />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="popular" className="mt-0">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {sortedConfessions.map((confession) => (
-                <ConfessionCard 
-                  key={confession.id} 
-                  confession={confession}
-                  onLikeUpdate={handleLikeUpdate}
-                />
-              ))}
-            </div>
-          </TabsContent>
+              {hasMore && (
+                <div className="flex justify-center mt-12">
+                  <Button
+                    onClick={handleLoadMore}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8 py-6"
+                  >
+                    Load More
+                  </Button>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </Tabs>
       </div>
     </section>

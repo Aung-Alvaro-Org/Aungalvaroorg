@@ -2,69 +2,6 @@ import { projectId, publicAnonKey } from "../utils/supabase/info";
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-2409b2a8`;
 
-// ==============================
-// 1️⃣ SIMPLE SLUR FILTER
-// ==============================
-const bannedWords = [
-  "nigger",
-  "faggot",
-  "kike",
-  "spic",
-  "tranny",
-];
-
-// Check if confession contains any banned words
-function containsBannedWord(text: string): boolean {
-  const lower = text.toLowerCase();
-  return bannedWords.some((word) => lower.includes(word));
-}
-
-// Optional cleanup logic (not used but kept)
-function cleanText(text: string): string {
-  let cleaned = text;
-  bannedWords.forEach((word) => {
-    const stars = "*".repeat(word.length);
-    cleaned = cleaned.replace(new RegExp(word, "gi"), stars);
-  });
-  return cleaned;
-}
-
-// ==============================
-// 2️⃣ EXTERNAL MODERATION API (GPT via Supabase Edge Function)
-// ==============================
-async function checkWithModerationAPI(text: string) {
-  try {
-    const res = await fetch(
-      "https://zwfvaixpekbkmxbeqhsx.supabase.co/functions/v1/swift-worker",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // 🔑 THIS WAS MISSING – Supabase requires auth for edge functions
-          Authorization: `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ text }),
-      }
-    );
-
-    const data = await res.json();
-    // data = { flagged, status, reason }
-    return data;
-  } catch (err) {
-    console.error("Moderation API error:", err);
-
-    // Treat API failure as a rejection
-    return {
-      flagged: true,
-      status: "REJECTED",
-      reason: "moderation_api_error",
-    };
-  }
-}
-
-// ==============================
-//  Type Definitions
-// ==============================
 export interface Confession {
   id: string;
   content: string;
@@ -72,6 +9,13 @@ export interface Confession {
   comments: number;
   timestamp: string;
   likedBy?: string[];
+}
+
+export interface Comment {
+  id: string;
+  confessionId: string;
+  content: string;
+  timestamp: string;
 }
 
 // Generate a unique user ID for anonymous like tracking
@@ -110,9 +54,6 @@ export function getTimeAgo(timestamp: string): string {
   return `${months} ${months === 1 ? "month" : "months"} ago`;
 }
 
-// ==============================
-//  Network API Wrapper (your existing server)
-// ==============================
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -125,57 +66,43 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || `HTTP error! status: ${response.status}`
-    );
+    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
 }
 
-// ==============================
-//  Get All Confessions
-// ==============================
 export async function getConfessions(): Promise<Confession[]> {
   const result = await fetchAPI("/confessions");
   return result.data || [];
 }
 
-// ==============================
-//  Submit Confession with 2-layer moderation
-// ==============================
 export async function submitConfession(content: string): Promise<Confession> {
-  // 1️⃣ Local slur block
-  if (containsBannedWord(content)) {
-    throw new Error("Your confession contains banned language.");
-  }
-
-  // 2️⃣ GPT moderation via edge function
-  const check = await checkWithModerationAPI(content);
-  console.log("Moderation:", check);
-
-  // If GPT rejects → stop here (do NOT write to DB)
-  if (check.flagged || check.status === "REJECTED") {
-    throw new Error(check.reason || "Your confession was rejected.");
-  }
-
-  // 3️⃣ If GPT approves → insert into Supabase via your existing backend
   const result = await fetchAPI("/confessions", {
     method: "POST",
     body: JSON.stringify({ content }),
   });
-
   return result.data;
 }
 
-// ==============================
-//  Like Toggle
-// ==============================
 export async function toggleLike(confessionId: string): Promise<Confession> {
   const userId = getUserId();
   const result = await fetchAPI(`/confessions/${confessionId}/like`, {
     method: "POST",
     body: JSON.stringify({ userId }),
+  });
+  return result.data;
+}
+
+export async function getComments(confessionId: string): Promise<Comment[]> {
+  const result = await fetchAPI(`/confessions/${confessionId}/comments`);
+  return result.data || [];
+}
+
+export async function submitComment(confessionId: string, content: string): Promise<Comment> {
+  const result = await fetchAPI(`/confessions/${confessionId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
   });
   return result.data;
 }

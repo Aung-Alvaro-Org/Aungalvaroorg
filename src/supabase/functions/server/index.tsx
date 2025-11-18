@@ -112,4 +112,69 @@ app.post("/make-server-2409b2a8/confessions/:id/like", async (c) => {
   }
 });
 
+// Add a comment to a confession
+app.post("/make-server-2409b2a8/confessions/:id/comments", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json();
+    const { content } = body;
+
+    if (!content || !content.trim()) {
+      return c.json({ success: false, error: "Comment content is required" }, 400);
+    }
+
+    if (content.length > 500) {
+      return c.json({ success: false, error: "Comment exceeds maximum length of 500 characters" }, 400);
+    }
+
+    const confession = await kv.get(`confession:${id}`);
+    
+    if (!confession) {
+      return c.json({ success: false, error: "Confession not found" }, 404);
+    }
+
+    const commentId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    
+    const comment = {
+      id: commentId,
+      confessionId: id,
+      content: content.trim(),
+      timestamp,
+    };
+
+    // Store comment with key pattern: comment:confessionId:commentId
+    await kv.set(`comment:${id}:${commentId}`, comment);
+    
+    // Update confession comment count
+    confession.comments = (confession.comments || 0) + 1;
+    await kv.set(`confession:${id}`, confession);
+    
+    return c.json({ success: true, data: comment }, 201);
+  } catch (error) {
+    console.error("Error creating comment:", error);
+    return c.json({ success: false, error: "Failed to create comment" }, 500);
+  }
+});
+
+// Get comments for a confession
+app.get("/make-server-2409b2a8/confessions/:id/comments", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    // Get all comments for this confession using prefix
+    const comments = await kv.getByPrefix(`comment:${id}:`);
+    
+    // Sort by timestamp descending (most recent first)
+    const sorted = comments.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    
+    return c.json({ success: true, data: sorted });
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    return c.json({ success: false, error: "Failed to fetch comments" }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

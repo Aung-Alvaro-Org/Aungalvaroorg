@@ -1,6 +1,7 @@
 import { Button } from "./ui/button";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import logo from "figma:asset/356b8400c00a176f9ef86a3a1186784544151aeb.png";
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -16,8 +17,8 @@ export function Navigation() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <button onClick={scrollToTop} className="text-xl text-white flex items-center gap-2 hover:opacity-80 transition-opacity">
-                {/* Logo placeholder - can be customized */}
+              <button onClick={scrollToTop} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <img src={logo} alt="Bath Confessions" className="h-10 w-10 rounded-full" />
               </button>
             </div>
           </div>
